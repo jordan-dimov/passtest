@@ -1,0 +1,20 @@
+[tool.poetry]
+name = "passtest"
+version = "0.1.0"
+description = "GPT-assisted Test-Driven Development with Python"
+authors = ["Jordan Dimov <jdimov@a115.co.uk>"]
+license = "Creative Commons"
+
+[tool.poetry.dependencies]
+python = "^3.10"
+openai = "^0.27.4"
+typer = "^0.7.0"
+pytest = "^7.3.0"
+
+[tool.poetry.dev-dependencies]
+ipdb = "^0.13.13"
+black = "^23.3.0"
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"
