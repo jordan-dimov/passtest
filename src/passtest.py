@@ -2,6 +2,7 @@ import typer
 import unittest
 import io
 from contextlib import redirect_stdout
+from src.gpt_utils import gpt_chat, ChatMem
 
 app = typer.Typer()
 
@@ -22,13 +23,6 @@ def load_tests_and_signature(file_path: str):
     test_code = "\n".join(code_lines[1:])
 
     return test_signature, test_code
-
-
-def generate_function_implementation(system_msg: str, prompt: str):
-    # Call the AI function to generate the implementation
-    implementation = "def odd_even():\n    return 'odd'"
-
-    return implementation
 
 
 def run_pytest_and_process_results(test_module: str, implementation: str):
@@ -59,6 +53,9 @@ def run_pytest_and_process_results(test_module: str, implementation: str):
 
 @app.command()
 def main(file_path: str, max_iterations: int = 3):
+    system_msg = "Act as an experienced Python developer and implement a function that passes the provided tests. Output ONLY the implementation of the function, including the function signature but NO other text."
+    mem = ChatMem(system_msg=system_msg)
+
     test_signature, pytest_code = load_tests_and_signature(file_path)
 
     iteration_count = 0
@@ -67,12 +64,13 @@ def main(file_path: str, max_iterations: int = 3):
     while not all_tests_passed and iteration_count < max_iterations:
         iteration_count += 1
 
-        system_msg = "Act as an experienced Python developer and implement a function that passes the provided tests. Output ONLY the implementation of the function, including the function signature but NO other text."
         prompt = f"Implement a concise Python function {test_signature} that passes the following tests: {pytest_code}"
         if iteration_count > 1:
             prompt += f" Here's the information about the failed test cases: {failed_tests_info}"
+        mem.add("user", prompt)
 
-        implementation = generate_function_implementation(system_msg, prompt)
+        implementation = gpt_chat(mem.get())
+
         with open("implementation.py", "w") as f:
             f.write(implementation)
 
@@ -86,6 +84,8 @@ def main(file_path: str, max_iterations: int = 3):
 
         if passed_tests:
             all_tests_passed = True
+        else:
+            typer.echo(f"Failed tests: {failed_tests_info}")
 
     if all_tests_passed:
         typer.echo("The AI-generated implementation passed all tests!")
