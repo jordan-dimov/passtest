@@ -3,6 +3,7 @@ import unittest
 import io
 from contextlib import redirect_stdout
 from src.gpt_utils import gpt_chat, ChatMem
+import subprocess
 
 app = typer.Typer()
 
@@ -72,7 +73,7 @@ def main(file_path: str, max_iterations: int = 3):
         implementation = gpt_chat(mem.get())
 
         with open("implementation.py", "w") as f:
-            f.write(implementation)
+            f.write(implementation + "\n")
 
         # Integrate implementation with initial code
         # Save the updated code to a .py file
@@ -88,7 +89,10 @@ def main(file_path: str, max_iterations: int = 3):
             typer.echo(f"Failed tests: {failed_tests_info}")
 
     if all_tests_passed:
-        typer.echo("The AI-generated implementation passed all tests!")
+        typer.echo(f"The AI-generated implementation passed all tests (in {iteration_count} iterations)")
+        typer.echo(f"Formatting the implementation code...")
+        # run black on implementation.py (in a subprocess)
+        subprocess.run(["black", "implementation.py"])
     else:
         typer.echo("Max iterations reached without passing all tests: ")
         typer.echo(failed_tests_info)
