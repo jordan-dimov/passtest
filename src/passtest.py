@@ -61,6 +61,7 @@ def main(file_path: str, max_iterations: int = 3):
 
     iteration_count = 0
     all_tests_passed = False
+    failed_tests_info = ""
 
     while not all_tests_passed and iteration_count < max_iterations:
         iteration_count += 1
