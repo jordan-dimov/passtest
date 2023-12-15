@@ -89,8 +89,10 @@ def main(file_path: str, max_iterations: int = 3):
             typer.echo(f"Failed tests: {failed_tests_info}")
 
     if all_tests_passed:
-        typer.echo(f"The AI-generated implementation passed all tests (in {iteration_count} iterations)")
-        typer.echo(f"Formatting the implementation code...")
+        typer.echo(
+            f"The AI-generated implementation passed all tests (in {iteration_count} iterations)"
+        )
+        typer.echo("Formatting the implementation code...")
         # run black on implementation.py (in a subprocess)
         subprocess.run(["black", "implementation.py"])
     else:
