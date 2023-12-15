@@ -1,5 +1,5 @@
-import os
 import contextlib
+import os
 import subprocess
 from pathlib import Path
 
@@ -143,6 +143,22 @@ def lint(file_path: str, max_iterations: int = 3):
 
         typer.echo("Linting the implementation code...")
         subprocess.run(["ruff", "--fix", impl_path], check=False)
+
+
+@app.command()
+def describe(file_path: str):
+    system_msg = "Act as an experienced Python developer and write a concise yet comprehensive technical specification for the implementation of a function which can pass all of the provided steps. Do your best to analyse all test cases in order to formulate a full description of what the function should do. "
+    mem = ChatMem(system_msg=system_msg)
+
+    test_signature, pytest_code = load_tests_and_signature(file_path)
+
+    prompt = f"Write a technical specification for the implementation of a function `{test_signature}` which passes the following tests: \n\n {pytest_code}"
+
+    mem.add("user", prompt)
+
+    specification = gpt_chat(mem.get())
+
+    typer.echo(specification)
 
 
 if __name__ == "__main__":
