@@ -92,4 +92,6 @@ The AI-TDD tool can also be used to assist with linting. To do so, run the follo
 poetry run python src/passtest.py lint FILE_PATH --max-iterations 3
 ``` 
 
-The tool will attempt to fix all linting errors in the provided file (as reported by `ruff`). If any changes were made, the linted file will be saved to `linted_implementation.py` 
+The tool will attempt to fix all linting errors (as reported by `ruff`) in the implementation for the tests in FILE_PATH. By default, it looks at `implementation.py`. If any changes were made, the linted file will be saved to `linted_implementation.py` 
+
+The `lint` command will check whether the linted implementation still passes the tests in FILE_PATH. If it does, the linted implementation will be saved to `implementation.py` 

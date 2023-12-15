@@ -1,3 +1,4 @@
+import os
 import contextlib
 import subprocess
 from pathlib import Path
@@ -100,18 +101,32 @@ def lint(file_path: str, max_iterations: int = 3):
     system_msg = "Act as an experienced Python developer and fix all linting issues reported for the provided code. Use clean, modern and Pythonic code optimised for Python 3.10 or newer. Try to keep code clean and minimal. IMPORTANT: Output ONLY the fixed implementation of the function and NO other text."
     mem = ChatMem(system_msg=system_msg)
 
+    impl_path = "implementation.py"
+
     attempts = 0
     while True:
-        implementation_code, linting_output = load_code_and_linting_output(file_path)
+        implementation_code, linting_output = load_code_and_linting_output(impl_path)
         attempts += 1
 
         if attempts > max_iterations:
-            typer.echo(f"Max iterations reached without fixing all linting issues. See {file_path}.")
+            typer.echo(f"Max iterations reached without fixing all linting issues. See {impl_path}.")
             return
 
         # check if there are any linting issues
         if not linting_output:
-            typer.echo(f"No linting issues remaining in: {file_path}")
+            typer.echo(f"No linting issues remaining in: {impl_path}")
+
+            typer.echo("Formatting the implementation code...")
+            subprocess.run(["ruff", "format", impl_path], check=False)
+
+            typer.echo("Ensuring the implementation code still passes all tests...")
+            exit_code = run_pytest_and_process_results(file_path)
+            if exit_code:
+                typer.echo("The implementation code no longer passes all tests! See junit.xml.")
+            else:
+                typer.echo("The implementation code still passes all tests.")
+                # mv impl_path to implementation.py (overwrite)
+                os.rename(impl_path, "implementation.py")
             return
 
         prompt = f"Fix all of these linting issues:  \n\n {linting_output} \n\n Here is the original code: \n\n {implementation_code}"
@@ -121,13 +136,13 @@ def lint(file_path: str, max_iterations: int = 3):
 
         typer.echo(implementation)
 
-        file_path = "linted_implementation.py"
+        impl_path = "linted_implementation.py"
 
-        with Path(file_path).open("w") as f:
+        with Path(impl_path).open("w") as f:
             f.write(implementation + "\n")
 
         typer.echo("Linting the implementation code...")
-        subprocess.run(["ruff", "--fix", file_path], check=False)
+        subprocess.run(["ruff", "--fix", impl_path], check=False)
 
 
 if __name__ == "__main__":
