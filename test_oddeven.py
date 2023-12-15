@@ -1,6 +1,7 @@
-# def odd_even(n: int | float) -> str:
+# def odd_even(n: float) -> str:
 
 import unittest
+
 from implementation import odd_even
 
 
@@ -19,3 +20,6 @@ class TestOddEven(unittest.TestCase):
 
     def test_float(self):
         assert odd_even(1.5) == "odd"
+
+    def test_negative_float(self):
+        assert odd_even(-4.11) == "even"

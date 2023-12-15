@@ -1,13 +1,13 @@
 from collections import deque
 
-import openai
+from openai import OpenAI
+
+client = OpenAI()
 
 
 def gpt_chat(messages):
-    response = openai.ChatCompletion.create(
-        # model='gpt-3.5-turbo',
+    response = client.chat.completions.create(
         model="gpt-4",
-        # model="gpt-4-32k",
         messages=messages,
     )
     return response.choices[0].message.content.strip()
