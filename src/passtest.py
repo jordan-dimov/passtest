@@ -1,5 +1,6 @@
-import os
+import contextlib
 import subprocess
+from pathlib import Path
 
 import pytest
 import typer
@@ -10,7 +11,7 @@ app = typer.Typer()
 
 
 def load_tests_and_signature(file_path: str):
-    with open(file_path) as f:
+    with Path(file_path).open() as f:
         code = f.read()
 
     # Assume that the first line is the commented-out function signature
@@ -27,17 +28,28 @@ def load_tests_and_signature(file_path: str):
     return test_signature, test_code
 
 
+def load_code_and_linting_output(file_path: str):
+    # Step 1: Load the code
+
+    with Path(file_path).open() as f:
+        code = f.read()
+
+    # Step 2: Run the `ruff` linter on file_path and capture the output
+
+    linting_output = subprocess.run(["ruff", file_path], capture_output=True, text=True, check=False).stdout
+
+    return code, linting_output.strip()
+
+
 def run_pytest_and_process_results(test_module: str):
     # Remove any junit.xml file that may exist from a previous run
-    try:
-        os.remove("junit.xml")
-    except FileNotFoundError:
-        pass
-    return pytest.main(["-qq", "--tb=short", "--junit-xml", "junit.xml", test_module + ".py"])
+    with contextlib.suppress(FileNotFoundError):
+        Path.unlink(Path("junit.xml"))
+    return pytest.main(["-qq", "--tb=short", "--junit-xml", "junit.xml", test_module])
 
 
 @app.command()
-def main(file_path: str, max_iterations: int = 3):
+def implement(file_path: str, max_iterations: int = 3):
     system_msg = "Act as an experienced Python developer and implement a function that passes the provided tests. Use clean, modern and Pythonic code optimised for Python 3.10 or newer. Do your best to use only built-in Python functionality or imports from Python's Standard Library if needed - but make sure to include any required imports. Keep the function signature as close as possible to the one in the request. Try to keep code clean and minimal.  IMPORTANT: Output ONLY the implementation of the function, including the function signature but NO other text."
     mem = ChatMem(system_msg=system_msg)
 
@@ -46,30 +58,26 @@ def main(file_path: str, max_iterations: int = 3):
     iteration_count = 0
     all_tests_passed = False
 
-    test_module = file_path.split("/")[-1].replace(".py", "")
-
     while (not all_tests_passed) and (iteration_count < max_iterations):
         iteration_count += 1
 
         prompt = f"Implement a concise Python 3.10 function {test_signature} which passes the following tests: \n\n {pytest_code}"
         if iteration_count > 1:
             # load the entire junit.xml file
-            with open("junit.xml") as f:
+            with Path("junit.xml").open() as f:
                 junit_xml = f.read()
-            prompt = f" Here is the junit XML of the previous failed run. Make sure all errors are fixed: {junit_xml}"
+            prompt = f" Here is the junit XML of the previous failed run. Make sure all errors are fixed. Focus only on the relevant parts of the code. \n {junit_xml}"
 
-        with open("convo.log", "a") as lf:
-            mem.add("user", prompt)
-            lf.write(prompt + "\n\n")
+        mem.add("user", prompt)
 
         implementation = gpt_chat(mem.get())
 
         typer.echo(implementation)
 
-        with open("implementation.py", "w") as f:
+        with Path("implementation.py").open("w") as f:
             f.write(implementation + "\n")
 
-        exit_code = run_pytest_and_process_results(test_module)
+        exit_code = run_pytest_and_process_results(file_path)
 
         if not exit_code:
             all_tests_passed = True
@@ -85,6 +93,41 @@ def main(file_path: str, max_iterations: int = 3):
         subprocess.run(["ruff", "--fix", "implementation.py"], check=False)
     else:
         typer.echo("Max iterations reached without passing all tests. See junit.xml. ")
+
+
+@app.command()
+def lint(file_path: str, max_iterations: int = 3):
+    system_msg = "Act as an experienced Python developer and fix all linting issues reported for the provided code. Use clean, modern and Pythonic code optimised for Python 3.10 or newer. Try to keep code clean and minimal. IMPORTANT: Output ONLY the fixed implementation of the function and NO other text."
+    mem = ChatMem(system_msg=system_msg)
+
+    attempts = 0
+    while True:
+        implementation_code, linting_output = load_code_and_linting_output(file_path)
+        attempts += 1
+
+        if attempts > max_iterations:
+            typer.echo(f"Max iterations reached without fixing all linting issues. See {file_path}.")
+            return
+
+        # check if there are any linting issues
+        if not linting_output:
+            typer.echo(f"No linting issues remaining in: {file_path}")
+            return
+
+        prompt = f"Fix all of these linting issues:  \n\n {linting_output} \n\n Here is the original code: \n\n {implementation_code}"
+        mem.add("user", prompt)
+
+        implementation = gpt_chat(mem.get())
+
+        typer.echo(implementation)
+
+        file_path = "linted_implementation.py"
+
+        with Path(file_path).open("w") as f:
+            f.write(implementation + "\n")
+
+        typer.echo("Linting the implementation code...")
+        subprocess.run(["ruff", "--fix", file_path], check=False)
 
 
 if __name__ == "__main__":

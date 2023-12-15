@@ -39,22 +39,22 @@ export PYTHONPATH=.
 To run the AI-TDD tool, execute the following command:
 
 ```bash
-poetry run python src/passtest.py FILE_PATH
+poetry run python src/passtest.py implement FILE_PATH
 ```
 
 Replace `FILE_PATH` with the path to your Python script containing type-annotated function signature and `unittest` test cases.
 
-### Customized Usage
+### Limit number of attempts
 
 By default, the tool attempts up to 3 iterations. You can override this default with the `--max-iterations INTEGER` option: 
 
 ```bash
-poetry run python src/passtest.py FILE_PATH --max-iterations 5
+poetry run python src/passtest.py implement FILE_PATH --max-iterations 5
 ```
 
 ## Example
 
-Suppose you have the unit tests in a file called `test_oddeven.py`. The first line of the file should contain a type-annotated function signature, and the rest of the file should contain the test cases:
+Suppose you have the unit tests in a file called `examples/test_oddeven.py`. The first line of the file should contain a type-annotated function signature, and the rest of the file should contain the test cases:
 
 ```python
 # def is_even(n: int) -> bool:
@@ -79,7 +79,17 @@ if __name__ == "__main__":
 Place the test file in your project directory, and then run the AI-TDD tool with the following command:
 
 ```bash
-poetry run python src/passtest.py test_oddeven.py
+poetry run python src/passtest.py implement examples/test_oddeven.py
 ```
 
 The tool will generate an implementation for the `is_even()` function that passes all provided tests and save the implementation to a file `implementation.py`.
+
+## AI-assisted linting
+
+The AI-TDD tool can also be used to assist with linting. To do so, run the following command:
+
+```bash
+poetry run python src/passtest.py lint FILE_PATH --max-iterations 3
+``` 
+
+The tool will attempt to fix all linting errors in the provided file (as reported by `ruff`). If any changes were made, the linted file will be saved to `linted_implementation.py` 
