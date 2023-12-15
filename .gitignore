@@ -130,4 +130,5 @@ dmypy.json
 
 .idea/
 .envrc
+junit.xml
 implementation.py
