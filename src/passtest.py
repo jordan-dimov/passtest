@@ -46,7 +46,7 @@ def run_pytest_and_process_results(test_module: str):
     # Remove any junit.xml file that may exist from a previous run
     with contextlib.suppress(FileNotFoundError):
         Path.unlink(Path("junit.xml"))
-    return pytest.main(["-qq", "--tb=short", "--junit-xml", "junit.xml", test_module])
+    return pytest.main(["-p", "no:cacheprovider", "-qq", "--tb=short", "--junit-xml=junit.xml", test_module])
 
 
 @app.command()
@@ -61,6 +61,8 @@ def implement(file_path: str, max_iterations: int = 3):
 
     while (not all_tests_passed) and (iteration_count < max_iterations):
         iteration_count += 1
+
+        # TODO: Call describe() once and pass it in with the first prompt to provide a better starting point
 
         prompt = f"Implement a concise Python 3.10 function {test_signature} which passes the following tests: \n\n {pytest_code}"
         if iteration_count > 1:
