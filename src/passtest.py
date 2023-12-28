@@ -1,9 +1,7 @@
 import contextlib
-import os
 import subprocess
 from pathlib import Path
 
-import pytest
 import typer
 
 from src.gpt_utils import ChatMem, gpt_chat
@@ -46,7 +44,10 @@ def run_pytest_and_process_results(test_module: str):
     # Remove any junit.xml file that may exist from a previous run
     with contextlib.suppress(FileNotFoundError):
         Path.unlink(Path("junit.xml"))
-    return pytest.main(["-p", "no:cacheprovider", "-qq", "--tb=short", "--junit-xml=junit.xml", test_module])
+
+    return subprocess.run(
+        ["pytest", "-p", "no:cacheprovider", "--tb=short", "--junit-xml=junit.xml", test_module], check=False
+    ).returncode
 
 
 @app.command()
@@ -62,14 +63,14 @@ def implement(file_path: str, max_iterations: int = 3):
     while (not all_tests_passed) and (iteration_count < max_iterations):
         iteration_count += 1
 
-        # TODO: Call describe() once and pass it in with the first prompt to provide a better starting point
+        # TODO(JD): Call describe() once and pass it in with the first prompt to provide a better starting point
 
         prompt = f"Implement a concise Python 3.10 function {test_signature} which passes the following tests: \n\n {pytest_code}"
         if iteration_count > 1:
             # load the entire junit.xml file
             with Path("junit.xml").open() as f:
                 junit_xml = f.read()
-            prompt = f" Here is the junit XML of the previous failed run. Make sure all errors are fixed. Focus only on the relevant parts of the code. \n {junit_xml}"
+            prompt = f" Here is the junit XML of the previous failed run. Focus only on the relevant parts of the code. Include a brief analysis of the failed tests as a docstring comment near the beginning of the implementation - together with your plan on how to fix these problems. \n {junit_xml}"
 
         mem.add("user", prompt)
 
@@ -127,8 +128,7 @@ def lint(file_path: str, max_iterations: int = 3):
                 typer.echo("The implementation code no longer passes all tests! See junit.xml.")
             else:
                 typer.echo("The implementation code still passes all tests.")
-                # mv impl_path to implementation.py (overwrite)
-                os.rename(impl_path, "implementation.py")
+                Path(impl_path).rename("implementation.py")
             return
 
         prompt = f"Fix all of these linting issues:  \n\n {linting_output} \n\n Here is the original code: \n\n {implementation_code}"
