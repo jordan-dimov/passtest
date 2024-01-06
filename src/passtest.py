@@ -1,6 +1,7 @@
 import contextlib
 import subprocess
 from pathlib import Path
+from typing import Optional
 
 import typer
 
@@ -46,13 +47,13 @@ def run_pytest_and_process_results(test_module: str):
         Path.unlink(Path("junit.xml"))
 
     return subprocess.run(
-        ["pytest", "-p", "no:cacheprovider", "--tb=short", "--junit-xml=junit.xml", test_module], check=False
+        ["pytest", "-p", "no:cacheprovider", "--tb=no", "--junit-xml=junit.xml", test_module], check=False
     ).returncode
 
 
 @app.command()
-def implement(file_path: str, max_iterations: int = 3):
-    system_msg = "Act as an experienced Python developer and implement a function that passes the provided tests. Use clean, modern and Pythonic code optimised for Python 3.10 or newer. Do your best to use only built-in Python functionality or imports from Python's Standard Library if needed - but make sure to include any required imports. Keep the function signature as close as possible to the one in the request. Try to keep code clean and minimal.  IMPORTANT: Output ONLY the implementation of the function, including the function signature but NO other text."
+def implement(file_path: str, max_iterations: int = 3, header: Optional[str] = None):
+    system_msg = "Act as a brilliant Python developer (top coder) and implement a function that passes the provided tests. Use clean, modern and Pythonic code optimised for Python 3.11 or newer. Do your best to use only built-in Python functionality or imports from Python's Standard Library if needed - but make sure to include any required imports. Keep the function signature as close as possible to the one in the request. Try to keep code clean and minimal.  IMPORTANT: Output ONLY the implementation of the function, including the function signature but NO other text."
     mem = ChatMem(system_msg=system_msg)
 
     test_signature, pytest_code = load_tests_and_signature(file_path)
@@ -60,21 +61,38 @@ def implement(file_path: str, max_iterations: int = 3):
     iteration_count = 0
     all_tests_passed = False
 
+    prompt = f"Implement a concise Python 3.10 function {test_signature} which passes the following tests. Make sure to output only clean Python code that will compile - NO OTHER TEXT! Here are the tests: \n\n {pytest_code}"
+    if header:
+        # Load the header from the file and add it to the prompt
+        with Path(header).open() as f:
+            header_text = f.read()
+            prompt += f"\n\n Assume the following code is already implemented: \n\n{header_text}\n"
+
     while (not all_tests_passed) and (iteration_count < max_iterations):
         iteration_count += 1
 
-        # TODO(JD): Call describe() once and pass it in with the first prompt to provide a better starting point
-
-        prompt = f"Implement a concise Python 3.10 function {test_signature} which passes the following tests: \n\n {pytest_code}"
         if iteration_count > 1:
             # load the entire junit.xml file
             with Path("junit.xml").open() as f:
                 junit_xml = f.read()
-            prompt = f" Here is the junit XML of the previous failed run. Focus only on the relevant parts of the code. Include a brief analysis of the failed tests as a docstring comment near the beginning of the implementation - together with your plan on how to fix these problems. \n {junit_xml}"
+            prompt = f" Here is the junit XML of the previous failed run. Focus only on the relevant parts of the code when making fixes for the failing tests. What do you think caused this? What's your best plan for fixing the failing tests (or finding an alternative approach)? \n {junit_xml}"
+            mem.add("user", prompt)
+            fix_suggestions = gpt_chat(mem.get())
+            typer.echo(fix_suggestions)
+            prompt = (
+                "Ok, let's give it another try. Remember to output clean Python code ONLY - no other text or markup!"
+            )
 
         mem.add("user", prompt)
 
         implementation = gpt_chat(mem.get())
+        if "```" in implementation:
+            # HACK: Despite best attempts in the prompt to avoid this, GPT still sometimes outputs a code block
+            # Extract only the lines between '```python` and '```'
+            implementation = implementation.split("```python")[1].split("```")[0].strip()
+
+        if header:
+            implementation = header_text + "\n\n# AI-implemented code: \n\n" + implementation
 
         typer.echo(implementation)
 
